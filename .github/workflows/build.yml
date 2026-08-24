@@ -1,71 +1,40 @@
 name: Android Build
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - main
-
-permissions:
-  contents: read
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
 
 jobs:
-  build-android:
+  build:
+    name: Build Android APK
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Setup Java
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '17'
           cache: gradle
 
-      - name: Install dependencies
-        run: npm install
+      - name: Grant execute permission
+        run: chmod +x ./gradlew
 
-      - name: Build web app
-        run: npm run build:web
-
-      - name: Create Android project
-        shell: bash
-        run: |
-          if [ ! -d "android" ]; then
-            npx cap add android
-          fi
-
-      - name: Sync Capacitor
-        run: npx cap sync android
-
-      - name: Build debug APK
-        working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
-
-      - name: Build release AAB
-        working-directory: android
-        run: ./gradlew bundleRelease --no-daemon
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: News-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Upload AAB
-        uses: actions/upload-artifact@v4
-        with:
-          name: News-release-aab
-          path: android/app/build/outputs/bundle/release/app-release.aab
-          if-no-files-found: warn
-          retention-days: 14
+          name: app-debug
+          path: app/build/outputs/apk/debug/*.apk
