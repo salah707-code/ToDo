@@ -1,0 +1,7 @@
+{
+  "name": "إنجاز - إدارة المهام اليومية",
+  "description": "تطبيق متكامل وحديث وخفيف لإدارة المهام اليومية والتذكيرات الشخصية بدعم RTL والتخصيص وقاعدة بيانات محلية.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
