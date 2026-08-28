@@ -62,4 +62,48 @@ class UserRepository(private val userDao: UserDao) {
     suspend fun getUserById(id: Long): UserEntity? {
         return userDao.getUserById(id)
     }
+
+    fun getUserByIdFlow(id: Long): kotlinx.coroutines.flow.Flow<UserEntity?> {
+        return userDao.getUserByIdFlow(id)
+    }
+
+    suspend fun updateProfile(
+        userId: Long,
+        name: String,
+        phone: String,
+        address: String,
+        jobTitle: String,
+        avatarIndex: Int,
+        avatarColor: Long
+    ): Boolean {
+        val existing = userDao.getUserById(userId) ?: return false
+        val updated = existing.copy(
+            displayName = name.trim(),
+            phoneNumber = phone.trim(),
+            address = address.trim(),
+            jobTitle = jobTitle.trim(),
+            avatarIndex = avatarIndex,
+            avatarColor = avatarColor
+        )
+        userDao.updateUser(updated)
+        return true
+    }
+
+    suspend fun changePassword(userId: Long, oldPass: String, newPass: String): AuthResult {
+        if (newPass.length < 6) {
+            return AuthResult.Error("كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل", "New password must be at least 6 characters")
+        }
+        val user = userDao.getUserById(userId)
+            ?: return AuthResult.Error("المستخدم غير موجود", "User not found")
+
+        val isOldValid = PasswordSecurity.verifyPassword(oldPass, user.salt, user.passwordHash)
+        if (!isOldValid) {
+            return AuthResult.Error("كلمة المرور الحالية غير صحيحة", "Current password is incorrect")
+        }
+
+        val newSalt = PasswordSecurity.generateSalt()
+        val newHash = PasswordSecurity.hashPassword(newPass, newSalt)
+        userDao.updatePassword(userId, newHash, newSalt)
+        return AuthResult.Success(user.copy(passwordHash = newHash, salt = newSalt))
+    }
 }

@@ -45,6 +45,7 @@ data class TaskEntity(
     val category: String = "شخصي",
     val categoryIcon: String = "person",
     val categoryColor: Long = 0xFF4F46E5,
+    val cardColorHex: Long = 0L, // 0L means follow category/default, or custom card color
     val date: Long, // Epoch day in millis representing 00:00:00 of the target date
     val timeHour: Int = -1, // -1 means no specific time set
     val timeMinute: Int = -1,
@@ -75,6 +76,11 @@ data class UserEntity(
     val id: Long = 0,
     val email: String,
     val displayName: String,
+    val phoneNumber: String = "",
+    val address: String = "",
+    val jobTitle: String = "",
+    val avatarIndex: Int = 0,
+    val avatarColor: Long = 0xFF4F46E5,
     val passwordHash: String,
     val salt: String,
     val createdAt: Long = System.currentTimeMillis()

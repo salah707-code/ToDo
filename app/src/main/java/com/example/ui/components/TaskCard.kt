@@ -2,8 +2,6 @@ package com.example.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -50,8 +48,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -62,9 +60,13 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.ReminderType
 import com.example.data.model.RepeatType
 import com.example.data.model.TaskEntity
+import com.example.data.preferences.CardBorderStyle
+import com.example.data.preferences.CardCornerStyle
+import com.example.data.preferences.CardLayoutStyle
+import com.example.data.preferences.CardShadowStyle
+import com.example.data.preferences.IconThemeStyle
 import com.example.ui.localization.LocalAppStrings
 import com.example.ui.theme.SuccessGreen
-import com.example.ui.theme.SuccessGreenDark
 import com.example.ui.utils.DateTimeUtils
 
 @Composable
@@ -74,251 +76,622 @@ fun TaskCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
+    layoutStyle: CardLayoutStyle = CardLayoutStyle.STANDARD,
+    shadowStyle: CardShadowStyle = CardShadowStyle.MEDIUM,
+    borderStyle: CardBorderStyle = CardBorderStyle.SUBTLE_LINE,
+    iconThemeStyle: IconThemeStyle = IconThemeStyle.COLORED_EMOJI,
+    cornerStyle: CardCornerStyle = CardCornerStyle.ROUNDED,
+    isArabic: Boolean = true
+) {
+    when (layoutStyle) {
+        CardLayoutStyle.LARGE_GRID -> {
+            TaskCardLargeGrid(
+                task = task,
+                onToggleComplete = onToggleComplete,
+                onEdit = onEdit,
+                onDelete = onDelete,
+                modifier = modifier,
+                shadowStyle = shadowStyle,
+                borderStyle = borderStyle,
+                iconThemeStyle = iconThemeStyle,
+                cornerStyle = cornerStyle,
+                isArabic = isArabic
+            )
+        }
+        CardLayoutStyle.COMPACT_LIST -> {
+            TaskCardCompactList(
+                task = task,
+                onToggleComplete = onToggleComplete,
+                onEdit = onEdit,
+                onDelete = onDelete,
+                modifier = modifier,
+                shadowStyle = shadowStyle,
+                borderStyle = borderStyle,
+                iconThemeStyle = iconThemeStyle,
+                cornerStyle = cornerStyle,
+                isArabic = isArabic
+            )
+        }
+        CardLayoutStyle.STANDARD -> {
+            TaskCardStandard(
+                task = task,
+                onToggleComplete = onToggleComplete,
+                onEdit = onEdit,
+                onDelete = onDelete,
+                modifier = modifier,
+                shadowStyle = shadowStyle,
+                borderStyle = borderStyle,
+                iconThemeStyle = iconThemeStyle,
+                cornerStyle = cornerStyle,
+                isArabic = isArabic
+            )
+        }
+    }
+}
+
+// 1. STANDARD CARD
+@Composable
+fun TaskCardStandard(
+    task: TaskEntity,
+    onToggleComplete: (Boolean) -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
+    shadowStyle: CardShadowStyle = CardShadowStyle.MEDIUM,
+    borderStyle: CardBorderStyle = CardBorderStyle.SUBTLE_LINE,
+    iconThemeStyle: IconThemeStyle = IconThemeStyle.COLORED_EMOJI,
+    cornerStyle: CardCornerStyle = CardCornerStyle.ROUNDED,
     isArabic: Boolean = true
 ) {
     val strings = LocalAppStrings.current
     var showMenu by remember { mutableStateOf(false) }
 
-    val categoryColor = Color(task.categoryColor)
+    // Use individual task card color if present, else category color
+    val effectiveColorHex = if (task.cardColorHex != 0L) task.cardColorHex else task.categoryColor
+    val cardAccentColor = Color(effectiveColorHex)
 
-    // Animated colors and styles based on completion state
-    val targetBgColor = if (task.isCompleted) {
+    val surfaceBg = if (task.isCompleted) {
         Color(0xFF151B2D).copy(alpha = 0.6f)
     } else {
-        Color(0xFF151B2D)
+        if (task.cardColorHex != 0L) {
+            Color(0xFF151B2D).copy(alpha = 0.92f)
+        } else {
+            Color(0xFF151B2D)
+        }
     }
 
-    val animatedBgColor by animateColorAsState(
-        targetValue = targetBgColor,
-        animationSpec = tween(durationMillis = 300),
-        label = "task_bg_color"
-    )
+    val cardShape = RoundedCornerShape(cornerStyle.cornerRadiusDp.dp)
 
-    val targetBorderColor = if (task.isCompleted) {
-        Color.White.copy(alpha = 0.03f)
-    } else {
-        Color.White.copy(alpha = 0.06f)
+    val cardBorderModifier = when (borderStyle) {
+        CardBorderStyle.NONE -> Modifier
+        CardBorderStyle.SUBTLE_LINE -> Modifier.border(0.8.dp, Color(0xFF2E3856), cardShape)
+        CardBorderStyle.COLORED_BORDER -> Modifier.border(1.5.dp, cardAccentColor.copy(alpha = 0.7f), cardShape)
+        CardBorderStyle.GLOW_BORDER -> Modifier.border(
+            width = 2.dp,
+            brush = Brush.linearGradient(listOf(cardAccentColor, cardAccentColor.copy(alpha = 0.3f))),
+            shape = cardShape
+        )
     }
 
-    val animatedBorderColor by animateColorAsState(
-        targetValue = targetBorderColor,
-        animationSpec = tween(durationMillis = 300),
-        label = "task_border_color"
-    )
-
-    val contentAlpha by animateFloatAsState(
-        targetValue = if (task.isCompleted) 0.65f else 1f,
-        animationSpec = tween(durationMillis = 300),
-        label = "task_alpha"
-    )
-
-    val checkScale by animateFloatAsState(
-        targetValue = if (task.isCompleted) 1f else 0.85f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "task_check_scale"
-    )
-
-    val primaryColor = MaterialTheme.colorScheme.primary
+    val shadowElevation = shadowStyle.elevationDp.dp
 
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(
-                elevation = if (task.isCompleted) 0.dp else 4.dp,
-                shape = RoundedCornerShape(24.dp),
-                ambientColor = Color.Black.copy(alpha = 0.2f),
-                spotColor = Color.Black.copy(alpha = 0.3f)
-            )
+            .shadow(elevation = shadowElevation, shape = cardShape, spotColor = cardAccentColor.copy(alpha = 0.35f))
+            .then(cardBorderModifier)
             .testTag("task_card_${task.id}"),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = animatedBgColor),
-        border = CardDefaults.outlinedCardBorder().copy(
-            brush = androidx.compose.ui.graphics.SolidColor(animatedBorderColor),
-            width = 1.dp
+        shape = cardShape,
+        colors = CardDefaults.cardColors(containerColor = surfaceBg)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Top Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Category Chip & Individual Color Indicator
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(cardAccentColor.copy(alpha = 0.18f))
+                            .border(1.dp, cardAccentColor.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            if (iconThemeStyle == IconThemeStyle.COLORED_EMOJI) {
+                                Text(
+                                    text = CategoryIcons.getEmoji(task.categoryIcon),
+                                    fontSize = 12.sp
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = CategoryIcons.getIcon(task.categoryIcon),
+                                    contentDescription = null,
+                                    tint = cardAccentColor,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                            }
+                            Text(
+                                text = task.category,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = cardAccentColor
+                            )
+                        }
+                    }
+
+                    if (task.repeatType != RepeatType.NONE) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(0xFF1E293B))
+                                .padding(horizontal = 6.dp, vertical = 3.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Repeat,
+                                contentDescription = "Repeating",
+                                tint = Color(0xFF94A3B8),
+                                modifier = Modifier.size(12.dp)
+                            )
+                        }
+                    }
+
+                    if (task.reminderType != ReminderType.NONE) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(0xFF1E293B))
+                                .padding(horizontal = 6.dp, vertical = 3.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.NotificationsActive,
+                                contentDescription = "Reminder Active",
+                                tint = cardAccentColor,
+                                modifier = Modifier.size(12.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Options Menu
+                Box {
+                    IconButton(
+                        onClick = { showMenu = true },
+                        modifier = Modifier.size(28.dp).testTag("task_menu_${task.id}")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "Options",
+                            tint = Color(0xFF94A3B8),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
+                        modifier = Modifier.background(Color(0xFF1E2438))
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(strings.editTask, color = Color(0xFFF9FAFB)) },
+                            onClick = {
+                                showMenu = false
+                                onEdit()
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Default.Edit, contentDescription = null, tint = Color(0xFF6366F1))
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(strings.delete, color = Color(0xFFEF4444)) },
+                            onClick = {
+                                showMenu = false
+                                onDelete()
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = Color(0xFFEF4444))
+                            }
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Middle Row: Checkbox + Title
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onToggleComplete(!task.isCompleted) },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Interactive Checkbox
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(if (task.isCompleted) SuccessGreen else Color.Transparent)
+                        .border(
+                            width = 2.dp,
+                            color = if (task.isCompleted) SuccessGreen else Color(0xFF475569),
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (task.isCompleted) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Completed",
+                            tint = Color.White,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // Title & Description
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = task.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (task.isCompleted) Color(0xFF94A3B8) else Color(0xFFF9FAFB),
+                        textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    if (task.description.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = task.description,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF94A3B8),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+
+            // Bottom Row: Date & Time Info
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AccessTime,
+                        contentDescription = null,
+                        tint = Color(0xFF94A3B8),
+                        modifier = Modifier.size(14.dp)
+                    )
+
+                    val dateText = DateTimeUtils.formatDateDisplay(task.date, isArabic)
+                    val timeText = if (task.timeHour in 0..23 && task.timeMinute in 0..59) {
+                        " • ${DateTimeUtils.formatTimeDisplay(task.timeHour, task.timeMinute, isArabic)}"
+                    } else ""
+
+                    Text(
+                        text = "$dateText$timeText",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF94A3B8)
+                    )
+                }
+
+                if (task.isCompleted && task.completedAt != null) {
+                    Text(
+                        text = if (isArabic) "مكتملة ✓" else "Done ✓",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = SuccessGreen
+                    )
+                }
+            }
+        }
+    }
+}
+
+// 2. LARGE GRID SQUARE CARD (مربعات كبيرة)
+@Composable
+fun TaskCardLargeGrid(
+    task: TaskEntity,
+    onToggleComplete: (Boolean) -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
+    shadowStyle: CardShadowStyle = CardShadowStyle.MEDIUM,
+    borderStyle: CardBorderStyle = CardBorderStyle.SUBTLE_LINE,
+    iconThemeStyle: IconThemeStyle = IconThemeStyle.COLORED_EMOJI,
+    cornerStyle: CardCornerStyle = CardCornerStyle.ROUNDED,
+    isArabic: Boolean = true
+) {
+    val strings = LocalAppStrings.current
+    var showMenu by remember { mutableStateOf(false) }
+
+    val effectiveColorHex = if (task.cardColorHex != 0L) task.cardColorHex else task.categoryColor
+    val cardAccentColor = Color(effectiveColorHex)
+
+    val surfaceBg = if (task.isCompleted) {
+        Color(0xFF151B2D).copy(alpha = 0.55f)
+    } else {
+        Color(0xFF151B2D)
+    }
+
+    val cardShape = RoundedCornerShape(cornerStyle.cornerRadiusDp.dp)
+
+    val cardBorderModifier = when (borderStyle) {
+        CardBorderStyle.NONE -> Modifier
+        CardBorderStyle.SUBTLE_LINE -> Modifier.border(0.8.dp, Color(0xFF2E3856), cardShape)
+        CardBorderStyle.COLORED_BORDER -> Modifier.border(1.5.dp, cardAccentColor.copy(alpha = 0.75f), cardShape)
+        CardBorderStyle.GLOW_BORDER -> Modifier.border(
+            width = 2.dp,
+            brush = Brush.linearGradient(listOf(cardAccentColor, cardAccentColor.copy(alpha = 0.3f))),
+            shape = cardShape
         )
+    }
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .shadow(elevation = shadowStyle.elevationDp.dp, shape = cardShape, spotColor = cardAccentColor.copy(alpha = 0.4f))
+            .then(cardBorderModifier)
+            .testTag("task_card_grid_${task.id}"),
+        shape = cardShape,
+        colors = CardDefaults.cardColors(containerColor = surfaceBg)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Top Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Category Tag
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(cardAccentColor.copy(alpha = 0.2f))
+                        .border(1.dp, cardAccentColor.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        if (iconThemeStyle == IconThemeStyle.COLORED_EMOJI) {
+                            Text(CategoryIcons.getEmoji(task.categoryIcon), fontSize = 13.sp)
+                        } else {
+                            Icon(
+                                imageVector = CategoryIcons.getIcon(task.categoryIcon),
+                                contentDescription = null,
+                                tint = cardAccentColor,
+                                modifier = Modifier.size(13.dp)
+                            )
+                        }
+                        Text(
+                            text = task.category,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = cardAccentColor
+                        )
+                    }
+                }
+
+                // Checkbox Button
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(if (task.isCompleted) SuccessGreen else Color(0xFF1E293B))
+                        .border(
+                            width = 2.dp,
+                            color = if (task.isCompleted) SuccessGreen else Color(0xFF475569),
+                            shape = CircleShape
+                        )
+                        .clickable { onToggleComplete(!task.isCompleted) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (task.isCompleted) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Done",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Large Title
+            Text(
+                text = task.title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (task.isCompleted) Color(0xFF94A3B8) else Color(0xFFF9FAFB),
+                textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            if (task.description.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = task.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF94A3B8),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Bottom Time & Edit Actions
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val dateStr = DateTimeUtils.formatDateDisplay(task.date, isArabic)
+                Text(
+                    text = dateStr,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFF94A3B8)
+                )
+
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    IconButton(
+                        onClick = onEdit,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(Icons.Default.Edit, contentDescription = "Edit", tint = Color(0xFF94A3B8), modifier = Modifier.size(15.dp))
+                    }
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(Icons.Default.DeleteOutline, contentDescription = "Delete", tint = Color(0xFFEF4444), modifier = Modifier.size(15.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+// 3. COMPACT LIST ROW (قائمة سريعة ومضغوطة)
+@Composable
+fun TaskCardCompactList(
+    task: TaskEntity,
+    onToggleComplete: (Boolean) -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
+    shadowStyle: CardShadowStyle = CardShadowStyle.SUBTLE,
+    borderStyle: CardBorderStyle = CardBorderStyle.SUBTLE_LINE,
+    iconThemeStyle: IconThemeStyle = IconThemeStyle.COLORED_EMOJI,
+    cornerStyle: CardCornerStyle = CardCornerStyle.MEDIUM,
+    isArabic: Boolean = true
+) {
+    val effectiveColorHex = if (task.cardColorHex != 0L) task.cardColorHex else task.categoryColor
+    val cardAccentColor = Color(effectiveColorHex)
+
+    val surfaceBg = if (task.isCompleted) Color(0xFF151B2D).copy(alpha = 0.5f) else Color(0xFF151B2D)
+    val cardShape = RoundedCornerShape(cornerStyle.cornerRadiusDp.dp)
+
+    val cardBorderModifier = when (borderStyle) {
+        CardBorderStyle.NONE -> Modifier
+        CardBorderStyle.SUBTLE_LINE -> Modifier.border(0.8.dp, Color(0xFF2E3856), cardShape)
+        CardBorderStyle.COLORED_BORDER -> Modifier.border(1.2.dp, cardAccentColor.copy(alpha = 0.6f), cardShape)
+        CardBorderStyle.GLOW_BORDER -> Modifier.border(1.5.dp, cardAccentColor, cardShape)
+    }
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .shadow(elevation = shadowStyle.elevationDp.dp, shape = cardShape)
+            .then(cardBorderModifier)
+            .clickable { onEdit() }
+            .testTag("task_card_compact_${task.id}"),
+        shape = cardShape,
+        colors = CardDefaults.cardColors(containerColor = surfaceBg)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { onToggleComplete(!task.isCompleted) }
-                .padding(horizontal = 16.dp, vertical = 14.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Checkbox: Square-rounded box with border or green fill
+            // Checkbox
             Box(
                 modifier = Modifier
-                    .size(24.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(
-                        if (task.isCompleted) SuccessGreen else Color.Transparent
-                    )
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(if (task.isCompleted) SuccessGreen else Color.Transparent)
                     .border(
-                        width = 2.dp,
-                        color = if (task.isCompleted) SuccessGreen else primaryColor.copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(8.dp)
+                        width = 1.8.dp,
+                        color = if (task.isCompleted) SuccessGreen else Color(0xFF475569),
+                        shape = CircleShape
                     )
-                    .scale(checkScale)
-                    .clickable { onToggleComplete(!task.isCompleted) }
-                    .testTag("checkbox_${task.id}"),
+                    .clickable { onToggleComplete(!task.isCompleted) },
                 contentAlignment = Alignment.Center
             ) {
                 if (task.isCompleted) {
                     Icon(
                         imageVector = Icons.Default.Check,
-                        contentDescription = strings.complete,
+                        contentDescription = "Done",
                         tint = Color.White,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(13.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.width(14.dp))
+            Spacer(modifier = Modifier.width(10.dp))
 
-            // Category Emoji Icon Box (w-12 h-12 rounded-2xl)
+            // Color Pip Indicator
             Box(
                 modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(categoryColor.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = CategoryIcons.getEmoji(task.categoryIcon),
-                    fontSize = 20.sp
-                )
-            }
+                    .size(width = 4.dp, height = 24.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(cardAccentColor)
+            )
 
-            Spacer(modifier = Modifier.width(14.dp))
+            Spacer(modifier = Modifier.width(10.dp))
 
-            // Main Details
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .alpha(contentAlpha)
-            ) {
-                // Task Title
+            // Title
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = task.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = if (task.isCompleted) {
-                        Color.White.copy(alpha = 0.55f)
-                    } else {
-                        Color.White
-                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (task.isCompleted) Color(0xFF94A3B8) else Color(0xFFF9FAFB),
                     textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None,
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-
-                if (task.description.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = task.description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF9CA3AF),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                // Date, Time & Meta Badges
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Time Badge
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AccessTime,
-                            contentDescription = null,
-                            tint = if (DateTimeUtils.isOverdue(task)) MaterialTheme.colorScheme.error else Color(0xFF9CA3AF),
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        val timeText = if (task.timeHour >= 0) {
-                            DateTimeUtils.formatTimeDisplay(task.timeHour, task.timeMinute, isArabic)
-                        } else {
-                            DateTimeUtils.formatDateDisplay(task.date, isArabic)
-                        }
-                        Text(
-                            text = timeText,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (DateTimeUtils.isOverdue(task)) MaterialTheme.colorScheme.error else Color(0xFF9CA3AF)
-                        )
-                    }
-
-                    // Dot separator
-                    Box(
-                        modifier = Modifier
-                            .size(3.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF9CA3AF).copy(alpha = 0.4f))
-                    )
-
-                    // Category Name
-                    Text(
-                        text = task.category,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = categoryColor
-                    )
-
-                    // Repeat Badge if any
-                    if (task.repeatType != RepeatType.NONE) {
-                        Icon(
-                            imageVector = Icons.Default.Repeat,
-                            contentDescription = strings.repeat,
-                            tint = primaryColor,
-                            modifier = Modifier.size(13.dp)
-                        )
-                    }
-                }
+                Text(
+                    text = "${task.category} • ${DateTimeUtils.formatDateDisplay(task.date, isArabic)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFF94A3B8),
+                    maxLines = 1
+                )
             }
 
-            // Options Menu (Edit / Delete)
-            Box {
-                IconButton(
-                    onClick = { showMenu = true },
-                    modifier = Modifier.size(36.dp).testTag("task_menu_${task.id}")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = "Options",
-                        tint = Color(0xFF9CA3AF),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false }
-                ) {
-                    DropdownMenuItem(
-                        text = { Text(strings.editTask) },
-                        leadingIcon = {
-                            Icon(Icons.Default.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        },
-                        onClick = {
-                            showMenu = false
-                            onEdit()
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text(strings.delete, color = MaterialTheme.colorScheme.error) },
-                        leadingIcon = {
-                            Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                        },
-                        onClick = {
-                            showMenu = false
-                            onDelete()
-                        }
-                    )
-                }
+            // Quick Delete Button
+            IconButton(
+                onClick = onDelete,
+                modifier = Modifier.size(24.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.DeleteOutline,
+                    contentDescription = "Delete",
+                    tint = Color(0xFFEF4444).copy(alpha = 0.7f),
+                    modifier = Modifier.size(16.dp)
+                )
             }
         }
     }

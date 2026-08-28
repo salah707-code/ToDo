@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Logout
@@ -51,6 +53,7 @@ import com.example.ui.viewmodel.TaskViewModel
 fun SettingsScreen(
     viewModel: TaskViewModel,
     preferences: UserPreferences,
+    onNavigateToProfile: () -> Unit,
     onNavigateToCustomization: () -> Unit,
     onNavigateToCategories: () -> Unit,
     onNavigateToAbout: () -> Unit,
@@ -89,14 +92,19 @@ fun SettingsScreen(
                 }
             }
 
-            // Profile Card
+            // Clickable Profile Card to edit profile
             item {
+                val avatarColor = Color(preferences.userAvatarColor)
+                val avatarEmoji = AvatarEmojis.getOrElse(preferences.userAvatarIndex) { "👤" }
+
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp, vertical = 8.dp)
-                        .shadow(elevation = 6.dp, shape = MaterialTheme.shapes.medium),
-                    shape = MaterialTheme.shapes.medium,
+                        .shadow(elevation = 6.dp, shape = RoundedCornerShape(20.dp))
+                        .clickable { onNavigateToProfile() }
+                        .testTag("settings_profile_card"),
+                    shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
                     Row(
@@ -108,17 +116,13 @@ fun SettingsScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(52.dp)
+                                .size(54.dp)
                                 .clip(CircleShape)
-                                .background(primaryColor.copy(alpha = 0.15f)),
+                                .background(avatarColor.copy(alpha = 0.25f))
+                                .border(2.dp, avatarColor, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Person,
-                                contentDescription = null,
-                                tint = primaryColor,
-                                modifier = Modifier.size(28.dp)
-                            )
+                            Text(text = avatarEmoji, fontSize = 26.sp)
                         }
 
                         Column(modifier = Modifier.weight(1f)) {
@@ -128,13 +132,27 @@ fun SettingsScreen(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
-                            Spacer(modifier = Modifier.height(2.dp))
+                            if (preferences.userJobTitle.isNotBlank()) {
+                                Text(
+                                    text = preferences.userJobTitle,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = primaryColor,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
                             Text(
-                                text = if (preferences.userEmail.isNotBlank()) preferences.userEmail else "offline-account",
+                                text = if (preferences.userEmail.isNotBlank()) preferences.userEmail else "user@enjaz.app",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit Profile",
+                            tint = primaryColor,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
             }
@@ -147,16 +165,27 @@ fun SettingsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp, vertical = 6.dp)
-                        .shadow(elevation = 4.dp, shape = MaterialTheme.shapes.medium),
-                    shape = MaterialTheme.shapes.medium,
+                        .shadow(elevation = 4.dp, shape = RoundedCornerShape(20.dp)),
+                    shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         SettingsRowItem(
+                            icon = Icons.Default.Person,
+                            title = strings.userProfile,
+                            subtitle = if (isArabic) "تعديل الاسم، الصورة، الهاتف، وتغيير كلمة المرور" else "Edit name, avatar, phone, and password",
+                            iconColor = primaryColor,
+                            onClick = onNavigateToProfile,
+                            testTag = "settings_profile_row"
+                        )
+
+                        SettingsDivider()
+
+                        SettingsRowItem(
                             icon = Icons.Default.Palette,
                             title = strings.customization,
-                            subtitle = if (isArabic) "الألوان، المظهر، حجم الخط، وشكل البطاقات" else "Colors, theme, font scale, and cards",
-                            iconColor = primaryColor,
+                            subtitle = if (isArabic) "الألوان، المظهر، تنسيق البطاقات، وأصوات التنبيه" else "Colors, theme, card layout, and alert sounds",
+                            iconColor = secondaryColor,
                             onClick = onNavigateToCustomization,
                             testTag = "settings_customization_row"
                         )
@@ -167,7 +196,7 @@ fun SettingsScreen(
                             icon = Icons.Default.Category,
                             title = strings.manageCategories,
                             subtitle = if (isArabic) "إضافة وتعديل التصنيفات المخصصة" else "Create and manage custom categories",
-                            iconColor = secondaryColor,
+                            iconColor = Color(0xFF06B6D4),
                             onClick = onNavigateToCategories,
                             testTag = "settings_categories_row"
                         )

@@ -25,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Repeat
@@ -101,9 +102,11 @@ fun AddEditTaskSheet(
 
     var reminderType by remember { mutableStateOf(initialTask?.reminderType ?: ReminderType.NONE) }
     var repeatType by remember { mutableStateOf(initialTask?.repeatType ?: RepeatType.NONE) }
+    var cardColorHex by remember { mutableStateOf(initialTask?.cardColorHex ?: 0L) }
 
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
+    var showColorPicker by remember { mutableStateOf(false) }
 
     val primaryColor = MaterialTheme.colorScheme.primary
     val secondaryColor = MaterialTheme.colorScheme.secondary
@@ -474,6 +477,90 @@ fun AddEditTaskSheet(
                 }
             }
 
+            Spacer(modifier = Modifier.height(18.dp))
+
+            // Individual Card Color Customization
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = strings.cardColor,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                TextButton(onClick = { showColorPicker = true }) {
+                    Text(
+                        text = "+ " + strings.customColor,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = primaryColor
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Default / Follow category color button
+                val isDefault = cardColorHex == 0L
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (isDefault) primaryColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant)
+                        .border(
+                            width = if (isDefault) 1.5.dp else 1.dp,
+                            color = if (isDefault) primaryColor else Color.Transparent,
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                        .clickable { cardColorHex = 0L }
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    Text(
+                        text = strings.defaultColor,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = if (isDefault) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isDefault) primaryColor else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                // Preset Color Squares
+                ColorPaletteGrid.take(8).forEach { colorVal ->
+                    val isSelected = cardColorHex == colorVal
+                    val col = Color(colorVal)
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(col)
+                            .border(
+                                width = if (isSelected) 2.5.dp else 1.dp,
+                                color = if (isSelected) Color.White else Color.Black.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .clickable { cardColorHex = colorVal },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isSelected) {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(26.dp))
 
             // Action Buttons (Save & Cancel)
@@ -503,6 +590,7 @@ fun AddEditTaskSheet(
                                 category = if (isArabic) selectedCategory.nameAr else selectedCategory.nameEn,
                                 categoryIcon = selectedCategory.iconName,
                                 categoryColor = selectedCategory.colorHex,
+                                cardColorHex = cardColorHex,
                                 date = selectedDateMillis,
                                 timeHour = timeHour,
                                 timeMinute = timeMinute,
@@ -620,5 +708,16 @@ fun AddEditTaskSheet(
                 }
             }
         }
+    }
+
+    if (showColorPicker) {
+        ColorPickerDialog(
+            initialColorHex = if (cardColorHex != 0L) cardColorHex else selectedCategory.colorHex,
+            onColorSelected = { chosenColor ->
+                cardColorHex = chosenColor
+            },
+            onDismiss = { showColorPicker = false },
+            title = strings.cardColor
+        )
     }
 }

@@ -7,6 +7,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,13 +25,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.EventNote
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -49,14 +49,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.data.model.CategoryEntity
 import com.example.data.model.TaskEntity
 import com.example.data.model.TaskTimeFilter
 import com.example.data.preferences.UserPreferences
@@ -76,6 +74,7 @@ fun HomeScreen(
     onNavigateToCalendar: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToReminders: () -> Unit,
+    onNavigateToProfile: () -> Unit,
     onEditTask: (TaskEntity) -> Unit,
     modifier: Modifier = Modifier,
     isArabic: Boolean = true
@@ -85,7 +84,6 @@ fun HomeScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     val allTasks by viewModel.allTasks.collectAsStateWithLifecycle()
-    val categories by viewModel.allCategories.collectAsStateWithLifecycle()
 
     var selectedFilter by remember { mutableStateOf(TaskTimeFilter.TODAY) }
 
@@ -150,7 +148,6 @@ fun HomeScreen(
     val userName = if (preferences.userName.isNotBlank()) preferences.userName else strings.guestUser
 
     val primaryColor = MaterialTheme.colorScheme.primary
-    val secondaryColor = MaterialTheme.colorScheme.secondary
 
     Box(
         modifier = modifier
@@ -175,28 +172,49 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Date on top, Greeting with emoji below
-                        Column {
-                            Text(
-                                text = DateTimeUtils.formatFullDate(System.currentTimeMillis(), isArabic),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.Normal
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Date on top, User Profile Avatar + Greeting with emoji below
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            // User Profile Avatar Clickable Button
+                            val avatarColor = Color(preferences.userAvatarColor)
+                            val avatarEmoji = AvatarEmojis.getOrElse(preferences.userAvatarIndex) { "👤" }
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(CircleShape)
+                                    .background(avatarColor.copy(alpha = 0.25f))
+                                    .border(1.8.dp, avatarColor, CircleShape)
+                                    .clickable { onNavigateToProfile() }
+                                    .testTag("home_profile_avatar"),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(text = avatarEmoji, fontSize = 20.sp)
+                            }
+
+                            Column {
                                 Text(
-                                    text = "$greeting، ",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    text = DateTimeUtils.formatFullDate(System.currentTimeMillis(), isArabic),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Normal
                                 )
-                                Text(
-                                    text = "$userName 👋",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "$greeting ",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = userName,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = primaryColor
+                                    )
+                                }
                             }
                         }
 
@@ -395,6 +413,11 @@ fun HomeScreen(
                                         }
                                     }
                                 },
+                                layoutStyle = preferences.cardLayoutStyle,
+                                shadowStyle = preferences.cardShadowStyle,
+                                borderStyle = preferences.cardBorderStyle,
+                                iconThemeStyle = preferences.iconThemeStyle,
+                                cornerStyle = preferences.cardStyle,
                                 isArabic = isArabic
                             )
                         }

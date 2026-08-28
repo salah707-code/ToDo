@@ -5,13 +5,20 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.util.Log
+import androidx.work.Data
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import com.example.data.model.ReminderType
 import com.example.data.model.TaskEntity
 import java.util.Calendar
+import java.util.concurrent.TimeUnit
 
 class ReminderScheduler(private val context: Context) {
 
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    private val workManager = WorkManager.getInstance(context)
 
     fun scheduleTaskReminder(task: TaskEntity) {
         if (task.isCompleted || task.reminderType == ReminderType.NONE) {
@@ -20,11 +27,35 @@ class ReminderScheduler(private val context: Context) {
         }
 
         val triggerTime = calculateTriggerTime(task)
-        if (triggerTime <= System.currentTimeMillis()) {
+        val now = System.currentTimeMillis()
+        if (triggerTime <= now) {
             // In the past, don't schedule
             return
         }
 
+        val delayMillis = triggerTime - now
+
+        // 1. Schedule via WorkManager (Reliable background execution)
+        val inputData = Data.Builder()
+            .putLong(TaskReminderWorker.KEY_TASK_ID, task.id)
+            .putString(TaskReminderWorker.KEY_TASK_TITLE, task.title)
+            .putString(TaskReminderWorker.KEY_TASK_CATEGORY, task.category)
+            .putLong(TaskReminderWorker.KEY_TASK_COLOR, task.categoryColor)
+            .build()
+
+        val workRequest = OneTimeWorkRequestBuilder<TaskReminderWorker>()
+            .setInitialDelay(delayMillis, TimeUnit.MILLISECONDS)
+            .setInputData(inputData)
+            .addTag("${TaskReminderWorker.WORK_TAG_PREFIX}${task.id}")
+            .build()
+
+        workManager.enqueueUniqueWork(
+            "${TaskReminderWorker.WORK_TAG_PREFIX}${task.id}",
+            ExistingWorkPolicy.REPLACE,
+            workRequest
+        )
+
+        // 2. Dual Schedule via AlarmManager (Immediate RTC wakeup)
         val intent = Intent(context, AlarmReceiver::class.java).apply {
             putExtra(AlarmReceiver.EXTRA_TASK_ID, task.id)
             putExtra(AlarmReceiver.EXTRA_TASK_TITLE, task.title)
@@ -54,7 +85,6 @@ class ReminderScheduler(private val context: Context) {
                 )
             }
         } catch (e: SecurityException) {
-            // Fallback to normal alarm if exact alarm permission is restricted
             alarmManager.set(
                 AlarmManager.RTC_WAKEUP,
                 triggerTime,
@@ -64,6 +94,15 @@ class ReminderScheduler(private val context: Context) {
     }
 
     fun cancelTaskReminder(taskId: Long) {
+        // Cancel WorkManager job
+        try {
+            workManager.cancelUniqueWork("${TaskReminderWorker.WORK_TAG_PREFIX}$taskId")
+            workManager.cancelAllWorkByTag("${TaskReminderWorker.WORK_TAG_PREFIX}$taskId")
+        } catch (e: Exception) {
+            Log.e("ReminderScheduler", "Error canceling WorkManager: ${e.message}")
+        }
+
+        // Cancel AlarmManager alarm
         val intent = Intent(context, AlarmReceiver::class.java)
         val pendingIntent = PendingIntent.getBroadcast(
             context,

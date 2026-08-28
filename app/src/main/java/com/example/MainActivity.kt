@@ -4,7 +4,9 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -21,15 +23,16 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.data.model.CategoryEntity
 import com.example.data.model.TaskEntity
 import com.example.data.preferences.AppLanguage
 import com.example.ui.components.AddEditTaskSheet
@@ -37,6 +40,7 @@ import com.example.ui.components.CreateCategoryDialog
 import com.example.ui.components.EnjazBottomNavigation
 import com.example.ui.components.EnjazFloatingActionButton
 import com.example.ui.components.NavDestination
+import com.example.ui.localization.LocalAppStrings
 import com.example.ui.screens.AboutScreen
 import com.example.ui.screens.AllTasksScreen
 import com.example.ui.screens.CalendarScreen
@@ -48,8 +52,8 @@ import com.example.ui.screens.RegisterScreen
 import com.example.ui.screens.RemindersScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.SplashScreen
+import com.example.ui.screens.UserProfileScreen
 import com.example.ui.theme.EnjazTheme
-import com.example.ui.utils.DateTimeUtils
 import com.example.ui.viewmodel.TaskViewModel
 import com.example.ui.viewmodel.TaskViewModelFactory
 
@@ -60,7 +64,8 @@ enum class AppScreen {
     MAIN,
     CUSTOMIZATION,
     CATEGORIES,
-    ABOUT
+    ABOUT,
+    PROFILE
 }
 
 class MainActivity : ComponentActivity() {
@@ -83,6 +88,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val userPreferences by viewModel.userPreferences.collectAsStateWithLifecycle()
             val categories by viewModel.allCategories.collectAsStateWithLifecycle()
+            val allTasks by viewModel.allTasks.collectAsStateWithLifecycle()
 
             // Notification permission request on Android 13+
             val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -102,6 +108,10 @@ class MainActivity : ComponentActivity() {
             }
 
             EnjazTheme(preferences = userPreferences) {
+                val context = LocalContext.current
+                val strings = LocalAppStrings.current
+                val isArabic = userPreferences.language == AppLanguage.AR
+
                 var currentScreen by remember { mutableStateOf(AppScreen.SPLASH) }
                 var currentNavDestination by remember { mutableStateOf(NavDestination.HOME) }
 
@@ -113,7 +123,57 @@ class MainActivity : ComponentActivity() {
                 // State for Create Category Dialog
                 var showCreateCategoryDialog by remember { mutableStateOf(false) }
 
-                val isArabic = userPreferences.language == AppLanguage.AR
+                // Back button press protection (prevents abrupt closing)
+                var lastBackPressTime by remember { mutableLongStateOf(0L) }
+
+                BackHandler(enabled = true) {
+                    when {
+                        showAddTaskSheet -> {
+                            showAddTaskSheet = false
+                            editingTask = null
+                            taskPreselectedDate = null
+                        }
+                        showCreateCategoryDialog -> {
+                            showCreateCategoryDialog = false
+                        }
+                        currentScreen == AppScreen.CUSTOMIZATION ||
+                        currentScreen == AppScreen.CATEGORIES ||
+                        currentScreen == AppScreen.ABOUT ||
+                        currentScreen == AppScreen.PROFILE -> {
+                            currentScreen = AppScreen.MAIN
+                        }
+                        currentScreen == AppScreen.REGISTER -> {
+                            currentScreen = AppScreen.LOGIN
+                        }
+                        currentScreen == AppScreen.MAIN && currentNavDestination != NavDestination.HOME -> {
+                            currentNavDestination = NavDestination.HOME
+                        }
+                        currentScreen == AppScreen.MAIN && currentNavDestination == NavDestination.HOME -> {
+                            val now = System.currentTimeMillis()
+                            if (now - lastBackPressTime < 2000) {
+                                finish()
+                            } else {
+                                lastBackPressTime = now
+                                Toast.makeText(context, strings.pressBackAgainToExit, Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        else -> {
+                            finish()
+                        }
+                    }
+                }
+
+                // Handle task opened from notification intent
+                LaunchedEffect(intent) {
+                    val openTaskId = intent?.getLongExtra("OPEN_TASK_ID", -1L) ?: -1L
+                    if (openTaskId != -1L) {
+                        val task = allTasks.find { it.id == openTaskId }
+                        if (task != null) {
+                            editingTask = task
+                            showAddTaskSheet = true
+                        }
+                    }
+                }
 
                 AnimatedContent(
                     targetState = currentScreen,
@@ -181,6 +241,7 @@ class MainActivity : ComponentActivity() {
                                                 onNavigateToCalendar = { currentNavDestination = NavDestination.CALENDAR },
                                                 onNavigateToSettings = { currentNavDestination = NavDestination.SETTINGS },
                                                 onNavigateToReminders = { currentNavDestination = NavDestination.REMINDERS },
+                                                onNavigateToProfile = { currentScreen = AppScreen.PROFILE },
                                                 onEditTask = { task ->
                                                     editingTask = task
                                                     showAddTaskSheet = true
@@ -231,6 +292,7 @@ class MainActivity : ComponentActivity() {
                                             SettingsScreen(
                                                 viewModel = viewModel,
                                                 preferences = userPreferences,
+                                                onNavigateToProfile = { currentScreen = AppScreen.PROFILE },
                                                 onNavigateToCustomization = { currentScreen = AppScreen.CUSTOMIZATION },
                                                 onNavigateToCategories = { currentScreen = AppScreen.CATEGORIES },
                                                 onNavigateToAbout = { currentScreen = AppScreen.ABOUT },
@@ -255,6 +317,19 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             }
+                        }
+
+                        AppScreen.PROFILE -> {
+                            UserProfileScreen(
+                                viewModel = viewModel,
+                                preferences = userPreferences,
+                                onBack = { currentScreen = AppScreen.MAIN },
+                                onLogout = {
+                                    viewModel.logout()
+                                    currentScreen = AppScreen.LOGIN
+                                },
+                                isArabic = isArabic
+                            )
                         }
 
                         AppScreen.CUSTOMIZATION -> {
