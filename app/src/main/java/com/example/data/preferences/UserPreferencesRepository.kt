@@ -17,23 +17,35 @@ val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "en
 
 enum class ThemeMode(val titleAr: String, val titleEn: String) {
     SYSTEM("تلقائي (حسب النظام)", "System Default"),
-    LIGHT("فاتح", "Light Mode"),
-    DARK("داكن", "Dark Mode")
+    LIGHT("فاتح ناصع", "Light Mode"),
+    DARK("داكن حديث", "Dark Mode"),
+    AMOLED("أسود نقي (AMOLED فائق التوفير)", "Pure Black AMOLED")
 }
 
 enum class PrimaryColorPreset(val colorValue: Long, val nameAr: String, val nameEn: String) {
-    INDIGO(0xFF4F46E5, "أزرق نيلي", "Indigo"),
-    PURPLE(0xFF7C3AED, "بنفسجي ملكي", "Purple"),
+    INDIGO(0xFF4F46E5, "أزرق نيلي حديث", "Indigo"),
+    PURPLE(0xFF7C3AED, "بنفسجي ملكي", "Royal Purple"),
     BLUE(0xFF2563EB, "أزرق محيطي", "Ocean Blue"),
     GREEN(0xFF10B981, "أخضر زمردي", "Emerald Green"),
-    TEAL(0xFF0D9488, "سماوي بترولي", "Teal"),
-    ORANGE(0xFFF97316, "برتقالي دافئ", "Sunset Orange"),
-    AMBER(0xFFF59E0B, "عنبري ذهبي", "Amber Gold"),
-    RED(0xFFEF4444, "أحمر قرمزي", "Crimson Red"),
-    ROSE(0xFFE11D48, "وردي ياقوتي", "Rose Pink"),
-    CYAN(0xFF06B6D4, "سماوي حديث", "Modern Cyan"),
-    SLATE(0xFF475569, "رمادي فحمي", "Slate Gray"),
-    CUSTOM(0xFF4F46E5, "مخصص", "Custom")
+    TEAL(0xFF0D9488, "سماوي بترولي (تيل)", "Teal Ocean"),
+    ORANGE(0xFFF97316, "برتقالي شروق دافئ", "Sunset Orange"),
+    AMBER(0xFFF59E0B, "عنبري ذهبي متألق", "Amber Gold"),
+    RED(0xFFEF4444, "أحمر قرمزي جريء", "Crimson Red"),
+    ROSE(0xFFE11D48, "وردي ياقوتي أنيق", "Rose Pink"),
+    CYAN(0xFF06B6D4, "تركواز نيون مائي", "Neon Cyan"),
+    FUCHSIA(0xFFD946EF, "فوشيا حيوي فاقع", "Vibrant Fuchsia"),
+    LIME(0xFF84CC16, "أخضر ليموني نابض", "Lime Energy"),
+    SLATE(0xFF475569, "رمادي فحمي هادئ", "Slate Gray"),
+    GOLD(0xFFD97706, "ذهبي ملكي فاخر", "Luxury Gold"),
+    CUSTOM(0xFF4F46E5, "لون مخصص (منتقي الألوان)", "Custom Color")
+}
+
+enum class FontFamilySetting(val titleAr: String, val titleEn: String, val previewAr: String, val previewEn: String) {
+    DEFAULT("الخط القياسي (النظام)", "System Default", "إنجاز مهامك اليومية بذكاء", "Smart Task Management"),
+    SANS_SERIF("سان سيريف حديث وواضح", "Modern Sans-Serif", "تصميم عصري بخط واضح وجميل", "Clean, modern and readable typography"),
+    SERIF("سيريف كلاسيكي رسمي", "Classic Serif", "أناقة الحروف الكلاسيكية الفخمة", "Timeless, elegant serif typography"),
+    MONOSPACE("تقني متناسق (Monospace)", "Technical Monospace", "أرقام ونصوص متناسقة هندسياً", "Code & tech aesthetic monospaced"),
+    CURSIVE("فني انسيابي (Cursive)", "Artistic Flow", "لمسة فنية مميزة وانسيابية", "Creative flowing handwritten style")
 }
 
 enum class CardLayoutStyle(val titleAr: String, val titleEn: String) {
@@ -92,6 +104,7 @@ data class UserPreferences(
     val colorPreset: PrimaryColorPreset = PrimaryColorPreset.INDIGO,
     val customColorHex: Long = 0xFF4F46E5,
     val fontScale: FontScaleSetting = FontScaleSetting.MEDIUM,
+    val fontFamily: FontFamilySetting = FontFamilySetting.DEFAULT,
     val cardStyle: CardCornerStyle = CardCornerStyle.ROUNDED,
     val cardLayoutStyle: CardLayoutStyle = CardLayoutStyle.STANDARD,
     val cardShadowStyle: CardShadowStyle = CardShadowStyle.MEDIUM,
@@ -118,6 +131,7 @@ class UserPreferencesRepository(private val context: Context) {
         val COLOR_PRESET = stringPreferencesKey("color_preset")
         val CUSTOM_COLOR_HEX = longPreferencesKey("custom_color_hex")
         val FONT_SCALE = stringPreferencesKey("font_scale")
+        val FONT_FAMILY = stringPreferencesKey("font_family")
         val CARD_STYLE = stringPreferencesKey("card_style")
         val CARD_LAYOUT_STYLE = stringPreferencesKey("card_layout_style")
         val CARD_SHADOW_STYLE = stringPreferencesKey("card_shadow_style")
@@ -151,6 +165,10 @@ class UserPreferencesRepository(private val context: Context) {
         val fontScale = runCatching {
             FontScaleSetting.valueOf(prefs[PreferenceKeys.FONT_SCALE] ?: FontScaleSetting.MEDIUM.name)
         }.getOrDefault(FontScaleSetting.MEDIUM)
+
+        val fontFamily = runCatching {
+            FontFamilySetting.valueOf(prefs[PreferenceKeys.FONT_FAMILY] ?: FontFamilySetting.DEFAULT.name)
+        }.getOrDefault(FontFamilySetting.DEFAULT)
 
         val cardStyle = runCatching {
             CardCornerStyle.valueOf(prefs[PreferenceKeys.CARD_STYLE] ?: CardCornerStyle.ROUNDED.name)
@@ -197,6 +215,7 @@ class UserPreferencesRepository(private val context: Context) {
             colorPreset = colorPreset,
             customColorHex = customColorHex,
             fontScale = fontScale,
+            fontFamily = fontFamily,
             cardStyle = cardStyle,
             cardLayoutStyle = cardLayoutStyle,
             cardShadowStyle = cardShadowStyle,
@@ -234,6 +253,10 @@ class UserPreferencesRepository(private val context: Context) {
 
     suspend fun setFontScale(scale: FontScaleSetting) {
         context.dataStore.edit { it[PreferenceKeys.FONT_SCALE] = scale.name }
+    }
+
+    suspend fun setFontFamily(family: FontFamilySetting) {
+        context.dataStore.edit { it[PreferenceKeys.FONT_FAMILY] = family.name }
     }
 
     suspend fun setCardStyle(style: CardCornerStyle) {

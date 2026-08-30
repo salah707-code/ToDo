@@ -36,6 +36,19 @@ enum class TaskStatusFilter(val titleAr: String, val titleEn: String) {
     UPCOMING("القادمة", "Upcoming")
 }
 
+enum class Priority(val titleAr: String, val titleEn: String, val colorHex: Long, val weight: Int) {
+    HIGH("عالية", "High", 0xFFEF4444, 3),
+    MEDIUM("متوسطة", "Medium", 0xFFF59E0B, 2),
+    LOW("منخفضة", "Low", 0xFF10B981, 1)
+}
+
+enum class TaskSortOrder(val titleAr: String, val titleEn: String) {
+    DATE_TIME("التاريخ والوقت", "Date & Time"),
+    PRIORITY_HIGH_FIRST("الأولوية (الأعلى أولاً)", "Priority (Highest first)"),
+    PRIORITY_LOW_FIRST("الأولوية (الأقل أولاً)", "Priority (Lowest first)"),
+    ALPHABETICAL("أبجدياً (أ-ي)", "Alphabetical (A-Z)")
+}
+
 @Entity(tableName = "tasks")
 data class TaskEntity(
     @PrimaryKey(autoGenerate = true)
@@ -49,11 +62,18 @@ data class TaskEntity(
     val date: Long, // Epoch day in millis representing 00:00:00 of the target date
     val timeHour: Int = -1, // -1 means no specific time set
     val timeMinute: Int = -1,
+    val priority: Priority = Priority.MEDIUM,
+    val locationName: String = "",
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val reminderByLocation: Boolean = false,
     val reminderType: ReminderType = ReminderType.NONE,
     val repeatType: RepeatType = RepeatType.NONE,
     val repeatDays: String = "", // Comma-separated 1..7 (1=Sunday, 7=Saturday)
     val isCompleted: Boolean = false,
     val completedAt: Long? = null,
+    val isDeleted: Boolean = false,
+    val deletedAt: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )

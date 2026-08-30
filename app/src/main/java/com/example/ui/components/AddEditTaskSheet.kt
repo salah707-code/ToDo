@@ -27,6 +27,8 @@ import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material3.Button
@@ -40,6 +42,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -62,6 +66,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.data.model.CategoryEntity
+import com.example.data.model.Priority
 import com.example.data.model.ReminderType
 import com.example.data.model.RepeatType
 import com.example.data.model.TaskEntity
@@ -84,6 +89,10 @@ fun AddEditTaskSheet(
 
     var title by remember { mutableStateOf(initialTask?.title ?: "") }
     var description by remember { mutableStateOf(initialTask?.description ?: "") }
+    var priority by remember { mutableStateOf(initialTask?.priority ?: Priority.MEDIUM) }
+
+    var reminderByLocation by remember { mutableStateOf(initialTask?.reminderByLocation ?: false) }
+    var locationName by remember { mutableStateOf(initialTask?.locationName ?: "") }
 
     var selectedCategory by remember {
         mutableStateOf(
@@ -176,7 +185,8 @@ fun AddEditTaskSheet(
                 onValueChange = { description = it },
                 label = { Text(strings.taskDescription) },
                 placeholder = { Text(strings.taskDescriptionHint) },
-                maxLines = 3,
+                minLines = 2,
+                maxLines = 4,
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("task_description_input"),
@@ -186,6 +196,68 @@ fun AddEditTaskSheet(
                     unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
                 )
             )
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            // Priority Selection (أولوية المهمة: عالي 🔴، متوسط 🟡، منخفض 🟢)
+            Text(
+                text = strings.priority,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Priority.values().forEach { prio ->
+                    val isSelected = prio == priority
+                    val prioColor = Color(prio.colorHex)
+                    val label = when (prio) {
+                        Priority.HIGH -> strings.priorityHigh
+                        Priority.MEDIUM -> strings.priorityMedium
+                        Priority.LOW -> strings.priorityLow
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(
+                                if (isSelected) prioColor.copy(alpha = 0.22f) else MaterialTheme.colorScheme.surfaceVariant
+                            )
+                            .border(
+                                width = if (isSelected) 2.dp else 1.dp,
+                                color = if (isSelected) prioColor else Color.Transparent,
+                                shape = RoundedCornerShape(10.dp)
+                            )
+                            .clickable { priority = prio }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Flag,
+                                contentDescription = null,
+                                tint = if (isSelected) prioColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) prioColor else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(18.dp))
 
@@ -384,7 +456,6 @@ fun AddEditTaskSheet(
                             .clickable {
                                 reminderType = rType
                                 if (rType != ReminderType.NONE && timeHour < 0) {
-                                    // Default to morning 9 AM if no time chosen
                                     timeHour = 9
                                     timeMinute = 0
                                 }
@@ -412,6 +483,66 @@ fun AddEditTaskSheet(
                                 color = if (isSelected) primaryColor else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            // Location Reminder Section (تذكير بالموقع الجغرافي)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f))
+                    .padding(12.dp)
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.LocationOn,
+                                contentDescription = null,
+                                tint = Color(0xFF06B6D4),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = strings.locationReminder,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
+                        Switch(
+                            checked = reminderByLocation,
+                            onCheckedChange = { reminderByLocation = it },
+                            colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF06B6D4))
+                        )
+                    }
+
+                    if (reminderByLocation) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        OutlinedTextField(
+                            value = locationName,
+                            onValueChange = { locationName = it },
+                            label = { Text(strings.locationPlaceName) },
+                            placeholder = { Text(strings.locationHint) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.small,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF06B6D4),
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                            )
+                        )
                     }
                 }
             }
@@ -587,6 +718,9 @@ fun AddEditTaskSheet(
                             )).copy(
                                 title = title.trim(),
                                 description = description.trim(),
+                                priority = priority,
+                                reminderByLocation = reminderByLocation,
+                                locationName = if (reminderByLocation) locationName.trim() else "",
                                 category = if (isArabic) selectedCategory.nameAr else selectedCategory.nameEn,
                                 categoryIcon = selectedCategory.iconName,
                                 categoryColor = selectedCategory.colorHex,

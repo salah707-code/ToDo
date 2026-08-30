@@ -8,6 +8,8 @@ class TaskRepository(private val taskDao: TaskDao) {
 
     val allTasks: Flow<List<TaskEntity>> = taskDao.getAllTasks()
     val pendingReminders: Flow<List<TaskEntity>> = taskDao.getPendingRemindersFlow()
+    val trashTasks: Flow<List<TaskEntity>> = taskDao.getTrashTasks()
+    val trashCount: Flow<Int> = taskDao.getTrashCount()
 
     fun getTasksByDateRange(startDate: Long, endDate: Long): Flow<List<TaskEntity>> {
         return taskDao.getTasksByDateRange(startDate, endDate)
@@ -31,6 +33,18 @@ class TaskRepository(private val taskDao: TaskDao) {
 
     suspend fun updateTask(task: TaskEntity) {
         taskDao.updateTask(task.copy(updatedAt = System.currentTimeMillis()))
+    }
+
+    suspend fun moveToTrash(id: Long) {
+        taskDao.moveToTrash(id)
+    }
+
+    suspend fun restoreFromTrash(id: Long) {
+        taskDao.restoreFromTrash(id)
+    }
+
+    suspend fun emptyTrash() {
+        taskDao.emptyTrash()
     }
 
     suspend fun deleteTask(task: TaskEntity) {

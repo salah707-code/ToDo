@@ -28,7 +28,10 @@ fun EnjazTheme(
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
+        ThemeMode.AMOLED -> true
     }
+
+    val isAmoled = preferences.themeMode == ThemeMode.AMOLED
 
     val primaryColorRaw = if (preferences.colorPreset == PrimaryColorPreset.CUSTOM) {
         Color(preferences.customColorHex)
@@ -49,24 +52,45 @@ fun EnjazTheme(
     )
 
     val colorScheme = if (isDark) {
-        darkColorScheme(
-            primary = animatedPrimary,
-            onPrimary = Color.White,
-            primaryContainer = animatedPrimary.copy(alpha = 0.2f),
-            onPrimaryContainer = Color.White,
-            secondary = secondaryColor,
-            onSecondary = Color.White,
-            background = DarkBackground,
-            onBackground = DarkTextPrimary,
-            surface = DarkSurface,
-            onSurface = DarkTextPrimary,
-            surfaceVariant = DarkSurfaceElevated,
-            onSurfaceVariant = DarkTextSecondary,
-            outline = DarkBorder,
-            outlineVariant = DarkBorder.copy(alpha = 0.5f),
-            error = DangerRed,
-            onError = Color.White
-        )
+        if (isAmoled) {
+            darkColorScheme(
+                primary = animatedPrimary,
+                onPrimary = Color.White,
+                primaryContainer = animatedPrimary.copy(alpha = 0.25f),
+                onPrimaryContainer = Color.White,
+                secondary = secondaryColor,
+                onSecondary = Color.White,
+                background = Color(0xFF000000),
+                onBackground = Color(0xFFF9FAFB),
+                surface = Color(0xFF080C14),
+                onSurface = Color(0xFFF9FAFB),
+                surfaceVariant = Color(0xFF101624),
+                onSurfaceVariant = Color(0xFF9CA3AF),
+                outline = Color(0xFF1F2937),
+                outlineVariant = Color(0xFF111827),
+                error = DangerRed,
+                onError = Color.White
+            )
+        } else {
+            darkColorScheme(
+                primary = animatedPrimary,
+                onPrimary = Color.White,
+                primaryContainer = animatedPrimary.copy(alpha = 0.2f),
+                onPrimaryContainer = Color.White,
+                secondary = secondaryColor,
+                onSecondary = Color.White,
+                background = DarkBackground,
+                onBackground = DarkTextPrimary,
+                surface = DarkSurface,
+                onSurface = DarkTextPrimary,
+                surfaceVariant = DarkSurfaceElevated,
+                onSurfaceVariant = DarkTextSecondary,
+                outline = DarkBorder,
+                outlineVariant = DarkBorder.copy(alpha = 0.5f),
+                error = DangerRed,
+                onError = Color.White
+            )
+        }
     } else {
         lightColorScheme(
             primary = animatedPrimary,
@@ -88,7 +112,7 @@ fun EnjazTheme(
         )
     }
 
-    val typography = getAppTypography(preferences.fontScale)
+    val typography = getAppTypography(preferences.fontScale, preferences.fontFamily)
     val shapes = getAppShapes(preferences.cardStyle)
     val strings = AppStringsProvider.getStrings(preferences.language)
     val layoutDirection = if (preferences.language == AppLanguage.AR) LayoutDirection.Rtl else LayoutDirection.Ltr

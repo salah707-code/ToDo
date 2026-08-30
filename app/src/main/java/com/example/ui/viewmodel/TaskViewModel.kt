@@ -4,14 +4,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.data.model.CategoryEntity
+import com.example.data.model.Priority
 import com.example.data.model.RepeatType
 import com.example.data.model.TaskEntity
+import com.example.data.model.TaskSortOrder
 import com.example.data.model.UserEntity
 import com.example.data.preferences.AppLanguage
 import com.example.data.preferences.CardBorderStyle
 import com.example.data.preferences.CardCornerStyle
 import com.example.data.preferences.CardLayoutStyle
 import com.example.data.preferences.CardShadowStyle
+import com.example.data.preferences.FontFamilySetting
 import com.example.data.preferences.FontScaleSetting
 import com.example.data.preferences.IconThemeStyle
 import com.example.data.preferences.NotificationTone
@@ -42,11 +45,20 @@ class TaskViewModel(
     val allTasks: StateFlow<List<TaskEntity>> = taskRepository.allTasks
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val trashTasks: StateFlow<List<TaskEntity>> = taskRepository.trashTasks
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val trashCount: StateFlow<Int> = taskRepository.trashCount
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
     val allCategories: StateFlow<List<CategoryEntity>> = categoryRepository.allCategories
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val userPreferences: StateFlow<UserPreferences> = userPreferencesRepository.userPreferencesFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPreferences())
+
+    private val _sortOrder = MutableStateFlow(TaskSortOrder.DATE_TIME)
+    val sortOrder: StateFlow<TaskSortOrder> = _sortOrder.asStateFlow()
 
     private val _lastDeletedTask = MutableStateFlow<TaskEntity?>(null)
     val lastDeletedTask: StateFlow<TaskEntity?> = _lastDeletedTask.asStateFlow()
@@ -56,6 +68,10 @@ class TaskViewModel(
         viewModelScope.launch {
             categoryRepository.getAllCategoriesDirect()
         }
+    }
+
+    fun setSortOrder(order: TaskSortOrder) {
+        _sortOrder.value = order
     }
 
     fun insertTask(task: TaskEntity) {
@@ -76,15 +92,40 @@ class TaskViewModel(
     fun deleteTask(task: TaskEntity) {
         viewModelScope.launch {
             _lastDeletedTask.value = task
+            taskRepository.moveToTrash(task.id)
+            reminderScheduler.cancelTaskReminder(task.id)
+        }
+    }
+
+    fun restoreFromTrash(task: TaskEntity) {
+        viewModelScope.launch {
+            taskRepository.restoreFromTrash(task.id)
+            if (!task.isCompleted && task.reminderType != com.example.data.model.ReminderType.NONE) {
+                reminderScheduler.scheduleTaskReminder(task)
+            }
+        }
+    }
+
+    fun permanentlyDeleteTask(task: TaskEntity) {
+        viewModelScope.launch {
             taskRepository.deleteTask(task)
             reminderScheduler.cancelTaskReminder(task.id)
+        }
+    }
+
+    fun emptyTrash() {
+        viewModelScope.launch {
+            taskRepository.emptyTrash()
         }
     }
 
     fun undoDelete() {
         val task = _lastDeletedTask.value ?: return
         viewModelScope.launch {
-            insertTask(task)
+            taskRepository.restoreFromTrash(task.id)
+            if (!task.isCompleted && task.reminderType != com.example.data.model.ReminderType.NONE) {
+                reminderScheduler.scheduleTaskReminder(task)
+            }
             _lastDeletedTask.value = null
         }
     }
@@ -134,6 +175,12 @@ class TaskViewModel(
     fun setFontScale(scale: FontScaleSetting) {
         viewModelScope.launch {
             userPreferencesRepository.setFontScale(scale)
+        }
+    }
+
+    fun setFontFamily(family: FontFamilySetting) {
+        viewModelScope.launch {
+            userPreferencesRepository.setFontFamily(family)
         }
     }
 

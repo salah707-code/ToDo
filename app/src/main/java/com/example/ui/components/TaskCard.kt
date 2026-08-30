@@ -28,6 +28,8 @@ import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Repeat
@@ -57,6 +59,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.Priority
 import com.example.data.model.ReminderType
 import com.example.data.model.RepeatType
 import com.example.data.model.TaskEntity
@@ -149,6 +152,7 @@ fun TaskCardStandard(
     // Use individual task card color if present, else category color
     val effectiveColorHex = if (task.cardColorHex != 0L) task.cardColorHex else task.categoryColor
     val cardAccentColor = Color(effectiveColorHex)
+    val priorityColor = Color(task.priority.colorHex)
 
     val surfaceBg = if (task.isCompleted) {
         Color(0xFF151B2D).copy(alpha = 0.6f)
@@ -180,6 +184,7 @@ fun TaskCardStandard(
             .fillMaxWidth()
             .shadow(elevation = shadowElevation, shape = cardShape, spotColor = cardAccentColor.copy(alpha = 0.35f))
             .then(cardBorderModifier)
+            .clickable { onEdit() }
             .testTag("task_card_${task.id}"),
         shape = cardShape,
         colors = CardDefaults.cardColors(containerColor = surfaceBg)
@@ -191,11 +196,12 @@ fun TaskCardStandard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Category Chip & Individual Color Indicator
+                // Category Chip & Priority & Location
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    // Category Badge
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
@@ -227,6 +233,65 @@ fun TaskCardStandard(
                                 fontWeight = FontWeight.SemiBold,
                                 color = cardAccentColor
                             )
+                        }
+                    }
+
+                    // Priority Flag Badge
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(priorityColor.copy(alpha = 0.16f))
+                            .border(1.dp, priorityColor.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Flag,
+                                contentDescription = "Priority",
+                                tint = priorityColor,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Text(
+                                text = if (isArabic) task.priority.titleAr else task.priority.titleEn,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = priorityColor,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+
+                    // Location Badge if enabled
+                    if (task.reminderByLocation && task.locationName.isNotBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFF06B6D4).copy(alpha = 0.16f))
+                                .border(1.dp, Color(0xFF06B6D4).copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 7.dp, vertical = 4.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.LocationOn,
+                                    contentDescription = "Location",
+                                    tint = Color(0xFF06B6D4),
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Text(
+                                    text = task.locationName,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color(0xFF06B6D4),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
 
@@ -283,7 +348,7 @@ fun TaskCardStandard(
                         modifier = Modifier.background(Color(0xFF1E2438))
                     ) {
                         DropdownMenuItem(
-                            text = { Text(strings.editTask, color = Color(0xFFF9FAFB)) },
+                            text = { Text(strings.openCardDetails, color = Color(0xFFF9FAFB)) },
                             onClick = {
                                 showMenu = false
                                 onEdit()
@@ -310,22 +375,21 @@ fun TaskCardStandard(
 
             // Middle Row: Checkbox + Title
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onToggleComplete(!task.isCompleted) },
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Interactive Checkbox
                 Box(
                     modifier = Modifier
-                        .size(24.dp)
+                        .size(26.dp)
                         .clip(CircleShape)
                         .background(if (task.isCompleted) SuccessGreen else Color.Transparent)
                         .border(
                             width = 2.dp,
                             color = if (task.isCompleted) SuccessGreen else Color(0xFF475569),
                             shape = CircleShape
-                        ),
+                        )
+                        .clickable { onToggleComplete(!task.isCompleted) },
                     contentAlignment = Alignment.Center
                 ) {
                     if (task.isCompleted) {
@@ -333,15 +397,19 @@ fun TaskCardStandard(
                             imageVector = Icons.Default.Check,
                             contentDescription = "Completed",
                             tint = Color.White,
-                            modifier = Modifier.size(14.dp)
+                            modifier = Modifier.size(15.dp)
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))
 
-                // Title & Description
-                Column(modifier = Modifier.weight(1f)) {
+                // Title & Notes/Description
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onEdit() }
+                ) {
                     Text(
                         text = task.title,
                         style = MaterialTheme.typography.titleMedium,
@@ -358,7 +426,7 @@ fun TaskCardStandard(
                             text = task.description,
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0xFF94A3B8),
-                            maxLines = 2,
+                            maxLines = 3,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
@@ -428,6 +496,7 @@ fun TaskCardLargeGrid(
 
     val effectiveColorHex = if (task.cardColorHex != 0L) task.cardColorHex else task.categoryColor
     val cardAccentColor = Color(effectiveColorHex)
+    val priorityColor = Color(task.priority.colorHex)
 
     val surfaceBg = if (task.isCompleted) {
         Color(0xFF151B2D).copy(alpha = 0.55f)
@@ -453,6 +522,7 @@ fun TaskCardLargeGrid(
             .fillMaxWidth()
             .shadow(elevation = shadowStyle.elevationDp.dp, shape = cardShape, spotColor = cardAccentColor.copy(alpha = 0.4f))
             .then(cardBorderModifier)
+            .clickable { onEdit() }
             .testTag("task_card_grid_${task.id}"),
         shape = cardShape,
         colors = CardDefaults.cardColors(containerColor = surfaceBg)
@@ -469,33 +539,54 @@ fun TaskCardLargeGrid(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Category Tag
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(cardAccentColor.copy(alpha = 0.2f))
-                        .border(1.dp, cardAccentColor.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                // Category Tag & Priority Tag
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(cardAccentColor.copy(alpha = 0.2f))
+                            .border(1.dp, cardAccentColor.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
-                        if (iconThemeStyle == IconThemeStyle.COLORED_EMOJI) {
-                            Text(CategoryIcons.getEmoji(task.categoryIcon), fontSize = 13.sp)
-                        } else {
-                            Icon(
-                                imageVector = CategoryIcons.getIcon(task.categoryIcon),
-                                contentDescription = null,
-                                tint = cardAccentColor,
-                                modifier = Modifier.size(13.dp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            if (iconThemeStyle == IconThemeStyle.COLORED_EMOJI) {
+                                Text(CategoryIcons.getEmoji(task.categoryIcon), fontSize = 13.sp)
+                            } else {
+                                Icon(
+                                    imageVector = CategoryIcons.getIcon(task.categoryIcon),
+                                    contentDescription = null,
+                                    tint = cardAccentColor,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                            }
+                            Text(
+                                text = task.category,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = cardAccentColor
                             )
                         }
-                        Text(
-                            text = task.category,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = cardAccentColor
+                    }
+
+                    // Priority Flag Chip
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(priorityColor.copy(alpha = 0.16f))
+                            .border(1.dp, priorityColor.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 6.dp, vertical = 3.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Flag,
+                            contentDescription = "Priority",
+                            tint = priorityColor,
+                            modifier = Modifier.size(12.dp)
                         )
                     }
                 }
@@ -599,6 +690,7 @@ fun TaskCardCompactList(
 ) {
     val effectiveColorHex = if (task.cardColorHex != 0L) task.cardColorHex else task.categoryColor
     val cardAccentColor = Color(effectiveColorHex)
+    val priorityColor = Color(task.priority.colorHex)
 
     val surfaceBg = if (task.isCompleted) Color(0xFF151B2D).copy(alpha = 0.5f) else Color(0xFF151B2D)
     val cardShape = RoundedCornerShape(cornerStyle.cornerRadiusDp.dp)
@@ -660,10 +752,24 @@ fun TaskCardCompactList(
                     .background(cardAccentColor)
             )
 
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Priority Dot
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(priorityColor)
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
 
             // Title
-            Column(modifier = Modifier.weight(1f)) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onEdit() }
+            ) {
                 Text(
                     text = task.title,
                     style = MaterialTheme.typography.bodyMedium,

@@ -12,10 +12,10 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface TaskDao {
 
-    @Query("SELECT * FROM tasks ORDER BY isCompleted ASC, date ASC, timeHour ASC, timeMinute ASC, id DESC")
+    @Query("SELECT * FROM tasks WHERE isDeleted = 0 ORDER BY isCompleted ASC, date ASC, timeHour ASC, timeMinute ASC, id DESC")
     fun getAllTasks(): Flow<List<TaskEntity>>
 
-    @Query("SELECT * FROM tasks WHERE date >= :startDate AND date <= :endDate ORDER BY isCompleted ASC, timeHour ASC, timeMinute ASC, id DESC")
+    @Query("SELECT * FROM tasks WHERE isDeleted = 0 AND date >= :startDate AND date <= :endDate ORDER BY isCompleted ASC, timeHour ASC, timeMinute ASC, id DESC")
     fun getTasksByDateRange(startDate: Long, endDate: Long): Flow<List<TaskEntity>>
 
     @Query("SELECT * FROM tasks WHERE id = :id")
@@ -24,11 +24,26 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE id = :id")
     suspend fun getTaskByIdDirect(id: Long): TaskEntity?
 
-    @Query("SELECT * FROM tasks WHERE isCompleted = 0 AND reminderType != 'NONE' ORDER BY date ASC, timeHour ASC, timeMinute ASC")
+    @Query("SELECT * FROM tasks WHERE isDeleted = 0 AND isCompleted = 0 AND reminderType != 'NONE' ORDER BY date ASC, timeHour ASC, timeMinute ASC")
     fun getPendingRemindersFlow(): Flow<List<TaskEntity>>
 
-    @Query("SELECT * FROM tasks WHERE isCompleted = 0 AND reminderType != 'NONE'")
+    @Query("SELECT * FROM tasks WHERE isDeleted = 0 AND isCompleted = 0 AND reminderType != 'NONE'")
     suspend fun getPendingRemindersDirect(): List<TaskEntity>
+
+    @Query("SELECT * FROM tasks WHERE isDeleted = 1 ORDER BY deletedAt DESC, id DESC")
+    fun getTrashTasks(): Flow<List<TaskEntity>>
+
+    @Query("SELECT COUNT(*) FROM tasks WHERE isDeleted = 1")
+    fun getTrashCount(): Flow<Int>
+
+    @Query("UPDATE tasks SET isDeleted = 1, deletedAt = :deletedAt WHERE id = :id")
+    suspend fun moveToTrash(id: Long, deletedAt: Long = System.currentTimeMillis())
+
+    @Query("UPDATE tasks SET isDeleted = 0, deletedAt = NULL WHERE id = :id")
+    suspend fun restoreFromTrash(id: Long)
+
+    @Query("DELETE FROM tasks WHERE isDeleted = 1")
+    suspend fun emptyTrash()
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTask(task: TaskEntity): Long
@@ -45,9 +60,9 @@ interface TaskDao {
     @Query("UPDATE tasks SET isCompleted = :isCompleted, completedAt = :completedAt, updatedAt = :updatedAt WHERE id = :id")
     suspend fun setTaskCompleted(id: Long, isCompleted: Boolean, completedAt: Long?, updatedAt: Long = System.currentTimeMillis())
 
-    @Query("SELECT COUNT(*) FROM tasks")
+    @Query("SELECT COUNT(*) FROM tasks WHERE isDeleted = 0")
     fun getTotalTasksCount(): Flow<Int>
 
-    @Query("SELECT COUNT(*) FROM tasks WHERE isCompleted = 1")
+    @Query("SELECT COUNT(*) FROM tasks WHERE isDeleted = 0 AND isCompleted = 1")
     fun getCompletedTasksCount(): Flow<Int>
 }
